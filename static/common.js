@@ -31,7 +31,16 @@ async function calc(url, fields, outId, render) {
     out.innerHTML = `<div class="error">Could not reach the server. Try again.</div>`;
   }
   out.style.opacity = "1";
+  out.scrollIntoView({ behavior: "smooth", block: "nearest" }); // keep the result in view on phones
 }
+
+// Pressing Enter / "Go" on the phone keyboard runs the calculator.
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.matches("section input")) {
+    e.preventDefault();
+    e.target.closest("section").querySelector("button").click();
+  }
+});
 
 // ---------- XP (saved in the browser, shown in the nav) ----------
 function getXP() {
@@ -64,6 +73,11 @@ function askChoice(box, options, correct, onDone) {
       });
       if (i !== correct) b.classList.add("wrong");
       onDone(i === correct);
+      // bring the Next button into view on small screens
+      setTimeout(() => {
+        const next = box.parentElement.querySelector('button[id$="-next"]');
+        if (next) next.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 60);
     };
     box.appendChild(b);
   });

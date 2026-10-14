@@ -1,0 +1,6 @@
+venv/
+.venv/
+__pycache__/
+.env
+*.pyc
+BurnRate_Project_Blueprint.docx

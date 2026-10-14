@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Light Theme Colors */
+    --bg: #f3f5f9; 
+    --panel: #ffffff; 
+    --ink: #0f172a; 
+    --muted: #64748b;
+    --line: #e2e8f0; 
+    --gain: #059669; 
+    --gain-bg: #d1fae5;
+    --loss: #dc2626; 
+    --loss-bg: #fee2e2;
+    --accent: #2563eb; 
+    --accent-hover: #1d4ed8;
+    --accent-ring: rgba(37, 99, 235, 0.2);
+    color-scheme: light dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root { 
+      /* Dark Theme Colors */
+      --bg: #0f172a; 
+      --panel: #1e293b; 
+      --ink: #f8fafc; 
+      --muted: #94a3b8;
+      --line: #334155; 
+      --gain: #34d399; 
+      --gain-bg: rgba(5, 150, 105, 0.2);
+      --loss: #f87171; 
+      --loss-bg: rgba(220, 38, 38, 0.2);
+      --accent: #3b82f6; 
+      --accent-hover: #60a5fa;
+      --accent-ring: rgba(59, 130, 246, 0.3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  
+  body { 
+    margin: 0; 
+    background: var(--bg); 
+    color: var(--ink); 
+    line-height: 1.6;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+    -webkit-font-smoothing: antialiased;
+  }
+
+  main { 
+    max-width: 1000px; 
+    margin: 0 auto; 
+    padding: 48px 24px 80px; 
+  }
+
+  .header-container {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  h1 { 
+    font-size: 2.25rem; 
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 0 0 8px; 
+  }
+
+  .sub { 
+    color: var(--muted); 
+    font-size: 1.1rem;
+    margin: 0; 
+  }
+
+  .grid { 
+    display: grid; 
+    gap: 24px; 
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+  }
+
+  section { 
+    background: var(--panel); 
+    border: 1px solid var(--line); 
+    border-radius: 16px; 
+    padding: 28px; 
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .section-header svg {
+    width: 20px;
+    height: 20px;
+    color: var(--accent);
+  }
+
+  h2 { 
+    font-size: 1.15rem; 
+    font-weight: 600;
+    margin: 0; 
+  }
+
+  .hint { 
+    color: var(--muted); 
+    font-size: 0.875rem; 
+    margin: 0 0 24px; 
+  }
+
+  .input-group {
+    margin-bottom: 16px;
+  }
+
+  label { 
+    display: block; 
+    font-size: 0.875rem; 
+    font-weight: 500;
+    margin-bottom: 6px; 
+    color: var(--ink);
+  }
+
+  input { 
+    width: 100%; 
+    padding: 10px 14px; 
+    font: inherit;
+    font-size: 0.95rem;
+    color: var(--ink); 
+    background: var(--bg); 
+    border: 1px solid var(--line); 
+    border-radius: 8px; 
+    transition: all 0.2s ease;
+  }
+
+  input:focus-visible { 
+    outline: none; 
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+
+  button { 
+    width: 100%; 
+    padding: 12px; 
+    margin-top: 8px;
+    font: inherit; 
+    font-weight: 600; 
+    font-size: 0.95rem;
+    cursor: pointer;
+    color: #ffffff; 
+    background: var(--accent); 
+    border: 0; 
+    border-radius: 8px; 
+    transition: all 0.2s ease;
+  }
+
+  button:hover {
+    background: var(--accent-hover);
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+
+  button:focus-visible {
+    outline: none; 
+    box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+
+  @media (prefers-color-scheme: dark) { 
+    button { color: #ffffff; } 
+  }
+
+  .result { 
+    margin-top: 24px; 
+    padding-top: 20px; 
+    border-top: 1px solid var(--line); 
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    flex-grow: 1;
+  }
+
+  .result:empty {
+    display: none;
+  }
+
+  .big { 
+    font-size: 2.25rem; 
+    font-weight: 700; 
+    font-variant-numeric: tabular-nums; 
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  .row { 
+    display: flex; 
+    justify-content: space-between; 
+    font-size: 0.925rem; 
+    color: var(--muted);
+    font-variant-numeric: tabular-nums; 
+    padding: 4px 0;
+  }
+  
+  .row span:last-child {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .gain { color: var(--gain) !important; } 
+  .loss { color: var(--loss) !important; }
+  
+  .badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  .badge.gain { background: var(--gain-bg); }
+  .badge.loss { background: var(--loss-bg); }
+
+  .error { 
+    color: var(--loss); 
+    font-size: 0.9rem; 
+    background: var(--loss-bg);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="header-container">
+    <h1>Trade Calculator</h1>
+    <p class="sub">Work out returns, yearly growth, and long-term value.</p>
+  </div>
+
+  <div class="grid">
+    <!-- Profit or Loss Section -->
+    <section>
+      <div class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h2>Profit or loss</h2>
+      </div>
+      <p class="hint">What did one trade earn?</p>
+      <div class="input-group">
+        <label>Buy price</label>
+        <input id="p-buy" type="number" step="any" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="input-group">
+        <label>Sell price</label>
+        <input id="p-sell" type="number" step="any" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="input-group">
+        <label>Quantity</label>
+        <input id="p-qty" type="number" step="any" value="1" inputmode="decimal">
+      </div>
+      <button onclick="calc('/api/profit', {buy:'p-buy', sell:'p-sell', quantity:'p-qty'}, 'p-out', showProfit)">Calculate profit</button>
+      <div class="result" id="p-out" aria-live="polite"></div>
+    </section>
+
+    <!-- CAGR Section -->
+    <section>
+      <div class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+        </svg>
+        <h2>Yearly return (CAGR)</h2>
+      </div>
+      <p class="hint">The steady yearly rate between two values.</p>
+      <div class="input-group">
+        <label>Starting value</label>
+        <input id="c-start" type="number" step="any" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="input-group">
+        <label>Ending value</label>
+        <input id="c-end" type="number" step="any" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="input-group">
+        <label>Years held</label>
+        <input id="c-years" type="number" step="any" inputmode="decimal" placeholder="e.g. 5">
+      </div>
+      <button onclick="calc('/api/cagr', {start:'c-start', end:'c-end', years:'c-years'}, 'c-out', showCagr)">Calculate CAGR</button>
+      <div class="result" id="c-out" aria-live="polite"></div>
+    </section>
+
+    <!-- Future Value Section -->
+    <section>
+      <div class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 1311.38V4.5a.5.5 0 01.5-.5h17a.5.5 0 01.5.5v6.88M3 13.12V19.5a.5.5 0 00.5.5h17a.5.5 0 00.5-.5v-6.38M3 13.12a4.5 4.5 0 019 0M21 13.12a4.5 4.5 0 00-9 0" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25v7.5m0-7.5l-3 3m3-3l3 3" />
+        </svg>
+        <h2>Future value</h2>
+      </div>
+      <p class="hint">Lump sum plus a monthly SIP, compounded.</p>
+      <div class="input-group">
+        <label>Lump sum</label>
+        <input id="f-lump" type="number" step="any" value="0" inputmode="decimal">
+      </div>
+      <div class="input-group">
+        <label>Monthly SIP</label>
+        <input id="f-sip" type="number" step="any" value="0" inputmode="decimal">
+      </div>
+      <div class="input-group">
+        <label>Expected yearly return (%)</label>
+        <input id="f-rate" type="number" step="any" inputmode="decimal" placeholder="e.g. 10">
+      </div>
+      <div class="input-group">
+        <label>Years</label>
+        <input id="f-years" type="number" step="any" inputmode="decimal" placeholder="e.g. 10">
+      </div>
+      <button onclick="calc('/api/future-value', {lump_sum:'f-lump', monthly_sip:'f-sip', rate:'f-rate', years:'f-years'}, 'f-out', showFuture)">Calculate future value</button>
+      <div class="result" id="f-out" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+  const fmt = n => Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  const sign = n => (n >= 0 ? "gain" : "loss");
+  const row = (label, value) => `<div class="row"><span>${label}</span><span>${value}</span></div>`;
+
+  // Backend integration untouched
+  async function calc(url, fields, outId, render) {
+    const out = document.getElementById(outId);
+    const payload = {};
+    for (const [key, inputId] of Object.entries(fields)) {
+      payload[key] = document.getElementById(inputId).value;
+    }
+    
+    // Optional UI touch: clearing out old result while fetching (doesn't touch backend logic)
+    out.style.opacity = '0.5';
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      out.style.opacity = '1';
+      out.innerHTML = res.ok ? render(data) : `<div class="error">${data.error}</div>`;
+    } catch (err) {
+      out.style.opacity = '1';
+      out.innerHTML = `<div class="error">Could not reach the server. Try again.</div>`;
+    }
+  }
+
+  // Display functions updated strictly for styling classes, mapping identical backend data
+  const showProfit = d =>
+    `<div class="big ${sign(d.percent)}">${d.percent > 0 ? "+" : ""}${fmt(d.percent)}%</div>` +
+    row("Invested", fmt(d.invested)) + 
+    row("Final value", fmt(d.final_value)) +
+    row(d.profit >= 0 ? "Profit" : "Loss", `<span class="badge ${sign(d.profit)}">${d.profit > 0 ? "+" : ""}${fmt(d.profit)}</span>`);
+
+  const showCagr = d =>
+    `<div class="big ${sign(d.cagr_percent)}">${fmt(d.cagr_percent)}% <span style="font-size: 1rem; font-weight: 500; color: var(--muted)">/ year</span></div>` +
+    row("Total return", `<span class="${sign(d.total_return_percent)}">${fmt(d.total_return_percent)}%</span>`);
+
+  const showFuture = d =>
+    `<div class="big">${fmt(d.final_value)}</div>` +
+    row("Total invested", fmt(d.invested)) +
+    row("Total gain", `<span class="badge ${sign(d.gain)}">+${fmt(d.gain)}</span>`);
+</script>
+</body>
+</html>

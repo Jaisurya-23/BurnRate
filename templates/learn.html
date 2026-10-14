@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Learn · Trade Calculator{% endblock %}
+
+{% block content %}
+<div class="header-container">
+  <h1>Learn in 10 seconds</h1>
+  <p class="sub">Tap a card to flip it. Then play with the time machine below.</p>
+</div>
+
+<div class="grid" id="cards"></div>
+
+<h2 class="section-title">⏳ Time machine</h2>
+<div class="card">
+  <p class="hint" style="margin-top:0">Drag the sliders and watch how time does the heavy lifting.</p>
+  <div class="grid">
+    <div>
+      <div class="slider-row"><span>Monthly SIP</span><b id="s-sip-v"></b></div>
+      <input type="range" id="s-sip" min="500" max="50000" step="500" value="5000">
+    </div>
+    <div>
+      <div class="slider-row"><span>Years</span><b id="s-years-v"></b></div>
+      <input type="range" id="s-years" min="1" max="40" step="1" value="10">
+    </div>
+    <div>
+      <div class="slider-row"><span>Yearly return</span><b id="s-rate-v"></b></div>
+      <input type="range" id="s-rate" min="4" max="15" step="1" value="10">
+    </div>
+  </div>
+  <div class="result" id="tm-out" aria-live="polite"></div>
+</div>
+
+<p class="tip" style="text-align:center;margin-top:32px">
+  Learning only. Real returns are never guaranteed.
+  Ready to test yourself? <a href="/play">Go to Play</a>
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ---------- Flip cards ----------
+  const CARDS = [
+    { e: "❄️", t: "Compound interest", q: "Interest on your interest.",
+      a: "Each year you earn on your money <b>and</b> on the earlier gains. It starts slow, then snowballs.",
+      eg: "₹1,00,000 at 10% a year becomes about ₹2.59 lakh in 10 years." },
+    { e: "📈", t: "CAGR", q: "The smooth yearly growth rate.",
+      a: "Real investments go up and down. CAGR is the one steady rate that would give the same result.",
+      eg: "₹1 lakh turning into ₹2 lakh in 5 years is about 14.9% a year." },
+    { e: "🪙", t: "SIP", q: "Small money, every month.",
+      a: "A Systematic Investment Plan puts in a fixed amount monthly. You buy more when prices are low and less when high.",
+      eg: "₹5,000 a month for 10 years is ₹6 lakh invested. At 10% it grows to about ₹10 lakh." },
+    { e: "✌️", t: "Rule of 72", q: "Double your money, how fast?",
+      a: "Divide 72 by the yearly return. The answer is roughly how many years it takes to double.",
+      eg: "At 8% a year: 72 ÷ 8 = 9 years." },
+    { e: "🎈", t: "Inflation", q: "Why cash slowly shrinks.",
+      a: "Prices rise every year, so the same money buys less. Your return should beat inflation.",
+      eg: "At 6% inflation, today's ₹100 buys only about ₹56 worth in 10 years." },
+    { e: "🕳️", t: "The loss trap", q: "Why losses hurt more than gains.",
+      a: "A loss needs a bigger gain to recover, because the gain starts from a smaller amount.",
+      eg: "Lose 50% and you need +100% to get back to even." },
+  ];
+
+  const wrap = document.getElementById("cards");
+  CARDS.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "flip";
+    el.tabIndex = 0;
+    el.setAttribute("role", "button");
+    el.setAttribute("aria-label", "Flip card: " + c.t);
+    el.innerHTML = `
+      <div class="flip-in">
+        <div class="face front"><div class="emoji">${c.e}</div><h3>${c.t}</h3><p>${c.q}</p><small>Tap to flip</small></div>
+        <div class="face back"><h3>${c.t}</h3><p>${c.a}</p><div class="eg">${c.eg}</div></div>
+      </div>`;
+    let seen = false;
+    const flip = () => {
+      el.classList.toggle("open");
+      if (!seen) { seen = true; addXP(2); } // small reward for curiosity
+    };
+    el.onclick = flip;
+    el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } };
+    wrap.appendChild(el);
+  });
+
+  // ---------- Time machine (uses the same backend as the calculator) ----------
+  const $ = id => document.getElementById(id);
+  let timer;
+
+  async function runMachine() {
+    const sip = +$("s-sip").value, years = +$("s-years").value, rate = +$("s-rate").value;
+    $("s-sip-v").textContent = "₹" + fmt(sip);
+    $("s-years-v").textContent = years + (years === 1 ? " year" : " years");
+    $("s-rate-v").textContent = rate + "%";
+
+    const { ok, data } = await post("/api/future-value", {
+      lump_sum: 0, monthly_sip: sip, rate: rate, years: years,
+    });
+    if (!ok) { $("tm-out").innerHTML = `<div class="error">${data.error}</div>`; return; }
+
+    const share = data.invested / data.final_value * 100;
+    $("tm-out").innerHTML =
+      `<div class="big">₹${fmt(data.final_value)}</div>` +
+      `<div class="bar"><div class="b1" style="width:${share}%"></div><div class="b2" style="width:${100 - share}%"></div></div>` +
+      `<div class="legend">
+         <span><i class="dot" style="background:var(--accent)"></i>You put in ₹${fmt(data.invested)}</span>
+         <span><i class="dot" style="background:var(--gain)"></i>Growth made ₹${fmt(data.gain)}</span>
+       </div>` +
+      `<p class="tip">Growth is ${fmt(data.gain / data.invested * 100)}% on top of what you invested. Try moving Years to 30.</p>`;
+  }
+
+  ["s-sip", "s-years", "s-rate"].forEach(id =>
+    $(id).addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(runMachine, 120); }));
+  runMachine();
+</script>
+{% endblock %}

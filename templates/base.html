@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Trade Calculator{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="logo" href="{{ url_for('index') }}">📈 Trade Calculator</a>
+    <a class="tab {{ 'on' if active == 'calc' }}" href="{{ url_for('index') }}">Calculators</a>
+    <a class="tab {{ 'on' if active == 'learn' }}" href="{{ url_for('learn') }}">Learn</a>
+    <a class="tab {{ 'on' if active == 'play' }}" href="{{ url_for('play') }}">Play</a>
+    <span class="xp" id="xp">⭐ 0 XP</span>
+  </div>
+</nav>
+<main>
+  {% block content %}{% endblock %}
+</main>
+<script src="{{ url_for('static', filename='common.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

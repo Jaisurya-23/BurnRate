@@ -40,9 +40,21 @@ def handle_bad_input(error):
     return jsonify({"error": str(error)}), 400
 
 
+# ---------- Pages (3 of them) ----------
+
 @app.get("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", active="calc")
+
+
+@app.get("/learn")
+def learn():
+    return render_template("learn.html", active="learn")
+
+
+@app.get("/play")
+def play():
+    return render_template("play.html", active="play")
 
 
 @app.get("/health")
@@ -50,6 +62,8 @@ def health():
     # Hosting platforms ping a route like this to know your app is alive.
     return jsonify({"status": "ok"})
 
+
+# ---------- API (unchanged) ----------
 
 @app.post("/api/profit")
 def api_profit():

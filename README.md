@@ -1,124 +1,81 @@
 # Trade Calculator
 
-A small Flask web app with three calculators for traders and investors:
+A small Flask website that helps people understand returns, yearly growth and long-term investing. It has three pages:
 
-- **Profit or loss:** percentage and amount for a single trade.
-- **CAGR:** the steady yearly return between a starting and ending value.
-- **Future value:** a lump sum plus a monthly SIP, compounded yearly.
+| Page | URL | What it does |
+|---|---|---|
+| Calculators | `/` | Profit or loss, CAGR, and future value (lump sum + monthly SIP) |
+| Learn | `/learn` | Six flip cards on key ideas, plus a "time machine" with sliders |
+| Play | `/play` | Three mini games: quiz, guess the growth, Rule of 72 |
 
-**Live demo:** _add your Render link here after deploying_
+Right answers and flipped cards earn XP, shown in the nav bar. XP is saved in the visitor's browser (localStorage). There is no database or login.
+
+> For learning only. Not financial advice. Real returns are never guaranteed.
 
 ## Project structure
 
 ```
-trading-calculator/
-├── app.py               # Flask routes and input validation
-├── calculators.py       # Pure calculation functions (no Flask)
-├── test_calculators.py  # Unit tests for the calculations
-├── requirements.txt     # Python dependencies
-├── .gitignore
-└── templates/
-    └── index.html       # Page and JavaScript (calls the API with fetch)
+app.py            Flask routes: 3 pages, 3 API endpoints, /health
+calculators.py    Pure calculation functions (no Flask in this file)
+requirements.txt  flask, gunicorn
+templates/
+  base.html       Shared layout and nav
+  index.html      Calculators page
+  learn.html      Learn page (flip cards + time machine)
+  play.html       Play page (games)
+static/
+  style.css       Shared styles (light and dark mode)
+  common.js       Shared helpers: formatting, API calls, XP, answer buttons
 ```
-
-The calculations live in `calculators.py` with no web code, so they can be tested without a server and reused anywhere.
 
 ## Run locally
 
-Requires Python 3.9 or newer.
-
 ```bash
-python -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python app.py                     # dev server at http://127.0.0.1:5000
+python app.py
 ```
 
-To run it the way production does:
+Open http://localhost:5000
+
+## Deploy
+
+Use the same setup as before. The start command is:
 
 ```bash
-gunicorn app:app                  # http://127.0.0.1:8000
+gunicorn app:app
 ```
 
-## Run the tests
-
-```bash
-pip install pytest
-python -m pytest
-```
-
-## Formulas
-
-| Calculator | Formula |
-| --- | --- |
-| Profit % | (sell − buy) ÷ buy × 100 |
-| CAGR | (end ÷ start)^(1 ÷ years) − 1 |
-| Lump-sum growth | P × (1 + r)^years |
-| SIP growth | SIP × ((1 + m)^months − 1) ÷ m, with SIP paid at the end of each month |
-
-The monthly rate `m` is `(1 + r)^(1/12) − 1`, so twelve months of compounding equals exactly one year at the yearly rate `r`.
+`/health` returns `{"status": "ok"}` for hosting platforms that check whether the app is alive.
 
 ## API
 
-All endpoints accept and return JSON. Invalid input returns HTTP 400 with `{"error": "..."}`.
+All endpoints take a JSON body with `POST` and return JSON. Bad input returns `400` with `{"error": "..."}`.
 
-### `GET /health`
-Returns `{"status": "ok"}`. Used to check the app is running.
+| Endpoint | Body | Returns |
+|---|---|---|
+| `/api/profit` | `buy`, `sell`, `quantity` (default 1) | `invested`, `final_value`, `profit`, `percent` |
+| `/api/cagr` | `start`, `end`, `years` | `cagr_percent`, `total_return_percent` |
+| `/api/future-value` | `lump_sum`, `monthly_sip`, `rate`, `years` | `invested`, `final_value`, `gain` |
 
-### `POST /api/profit`
-```json
-{ "buy": 100, "sell": 125, "quantity": 10 }
-```
-Response:
-```json
-{ "invested": 1000.0, "final_value": 1250.0, "profit": 250.0, "percent": 25.0 }
-```
-`quantity` is optional and defaults to 1.
-
-### `POST /api/cagr`
-```json
-{ "start": 100000, "end": 200000, "years": 5 }
-```
-Response:
-```json
-{ "cagr_percent": 14.87, "total_return_percent": 100.0 }
-```
-
-### `POST /api/future-value`
-```json
-{ "lump_sum": 0, "monthly_sip": 5000, "rate": 12, "years": 10 }
-```
-Response:
-```json
-{ "invested": 600000.0, "final_value": 1109650.21, "gain": 509650.21 }
-```
-`lump_sum` and `monthly_sip` default to 0, but at least one must be greater than 0. `rate` is the expected yearly return in percent.
-
-Example with curl:
+Example:
 
 ```bash
-curl -X POST http://127.0.0.1:5000/api/cagr \
+curl -X POST http://localhost:5000/api/future-value \
   -H "Content-Type: application/json" \
-  -d '{"start": 100000, "end": 200000, "years": 5}'
+  -d '{"lump_sum":0,"monthly_sip":5000,"rate":10,"years":10}'
 ```
 
-## Validation rules
+The backend validates every input itself and never trusts the frontend. The SIP calculation assumes payments at the end of each month, with a monthly rate equivalent to the yearly rate.
 
-- Buy price, starting value and ending value must be greater than 0.
-- Years must be greater than 0 (and at most 100 for future value).
-- Yearly return must be between -100% and 1000%.
-- Values that are not real numbers (text, `nan`, `inf`) are rejected.
+## How to change things
 
-## Deploy on Render
+- **Add or edit a learning card:** edit the `CARDS` list in `templates/learn.html`.
+- **Add or edit a quiz question:** edit the `QUIZ` list in `templates/play.html`. Each item has `q` (question), `o` (options), `a` (index of the correct option, starting at 0) and `why` (explanation).
+- **Change colours:** edit the variables at the top of `static/style.css`. Dark mode values are in the `prefers-color-scheme: dark` block.
+- **Change XP rewards:** search for `addXP(` in the templates.
+- **Add a new page:** add a route in `app.py`, create a template that extends `base.html`, and add a link in the nav in `base.html`.
+- **Add a new calculation:** write a function in `calculators.py`, add a route in `app.py` that validates with `read_number`, and call it from the page with `post()` or `calc()`.
 
-1. Push this project to a GitHub repository.
-2. On Render, create a new **Web Service** and connect the repository.
-3. Set the build command to `pip install -r requirements.txt`.
-4. Set the start command to `gunicorn app:app`.
-5. Deploy, then open the service URL and check `/health`.
+## Tech
 
-Free-tier services may sleep when idle, so the first request after a pause can be slow.
-
-## Disclaimer
-
-This tool is for learning and rough estimates. Returns are not guaranteed, and the results are not financial advice.
+Flask, plain HTML/CSS/JavaScript (no build step, no frameworks), Inter font from Google Fonts.

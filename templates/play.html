@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Play · Trade Calculator{% endblock %}
+
+{% block content %}
+<div class="header-container">
+  <h1>Play and earn XP</h1>
+  <p class="sub">Three quick games. Right answers earn XP.</p>
+</div>
+
+<div class="games" role="tablist">
+  <button data-g="quiz">🧠 Quick quiz</button>
+  <button data-g="guess" class="ghost">🔮 Guess the growth</button>
+  <button data-g="r72" class="ghost">✌️ Rule of 72</button>
+</div>
+
+<!-- Game 1: Quiz -->
+<div class="card panel" id="g-quiz">
+  <div class="scoreline"><span id="qz-count"></span><span id="qz-score"></span></div>
+  <div class="progress"><div id="qz-bar" style="width:0"></div></div>
+  <div class="q" id="qz-q"></div>
+  <div class="choices" id="qz-choices"></div>
+  <div id="qz-fb"></div>
+  <button id="qz-next" style="display:none">Next question</button>
+</div>
+
+<!-- Game 2: Guess the growth -->
+<div class="card panel" id="g-guess">
+  <div class="scoreline"><span id="gg-streak"></span><span id="gg-score"></span></div>
+  <div class="q" id="gg-q">Loading…</div>
+  <div class="choices" id="gg-choices"></div>
+  <div id="gg-fb"></div>
+  <button id="gg-next" style="display:none">Next round</button>
+</div>
+
+<!-- Game 3: Rule of 72 -->
+<div class="card panel" id="g-r72">
+  <div class="scoreline"><span id="rr-streak"></span><span id="rr-score"></span></div>
+  <div class="q" id="rr-q"></div>
+  <div class="choices" id="rr-choices"></div>
+  <div id="rr-fb"></div>
+  <button id="rr-next" style="display:none">Next round</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const $ = id => document.getElementById(id);
+
+  // ---------- Tabs ----------
+  const startFns = {};
+  document.querySelectorAll(".games button").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".games button").forEach(b => b.classList.add("ghost"));
+      btn.classList.remove("ghost");
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("on"));
+      $("g-" + btn.dataset.g).classList.add("on");
+      startFns[btn.dataset.g]();
+    };
+  });
+
+  // =====================================================
+  // Game 1: Quick quiz (8 questions)
+  // =====================================================
+  const QUIZ = [
+    { q: "Compound interest means you earn interest on…",
+      o: ["Only your original money", "Your money and your past interest", "Only the bank's profit"], a: 1,
+      why: "Interest on interest is what makes growth snowball." },
+    { q: "At 12% a year, about how long does money take to double?",
+      o: ["3 years", "12 years", "6 years"], a: 2, why: "Rule of 72: 72 ÷ 12 = 6 years." },
+    { q: "A stock falls 50%. What gain gets you back to even?",
+      o: ["50%", "100%", "150%"], a: 1, why: "₹100 → ₹50. To get back to ₹100 you must double it, which is +100%." },
+    { q: "What does SIP stand for?",
+      o: ["Systematic Investment Plan", "Simple Interest Payment", "Stock Income Program"], a: 0,
+      why: "A fixed amount invested on a regular schedule, usually monthly." },
+    { q: "What helps compounding the most?",
+      o: ["Checking prices daily", "Starting early", "One big deposit late"], a: 1,
+      why: "More time gives growth more rounds to build on itself." },
+    { q: "CAGR is…",
+      o: ["Your best single year", "Total profit in rupees", "The smooth yearly growth rate"], a: 2,
+      why: "It's the steady yearly rate that gives the same final result." },
+    { q: "Inflation is 6% and your savings earn 4%. Your buying power…",
+      o: ["Grows", "Stays the same", "Shrinks"], a: 2, why: "Prices rise faster than your money grows." },
+    { q: "Buy at ₹100, sell at ₹120, quantity 10. What's the profit?",
+      o: ["₹20", "₹120", "₹200"], a: 2, why: "(120 − 100) × 10 = ₹200." },
+  ];
+
+  let qi = 0, qScore = 0;
+  function quizStart() { qi = 0; qScore = 0; quizShow(); }
+  function quizShow() {
+    const item = QUIZ[qi];
+    $("qz-count").textContent = `Question ${qi + 1} of ${QUIZ.length}`;
+    $("qz-score").textContent = `Score ${qScore}`;
+    $("qz-bar").style.width = (qi / QUIZ.length * 100) + "%";
+    $("qz-q").textContent = item.q;
+    $("qz-fb").innerHTML = "";
+    $("qz-next").style.display = "none";
+    askChoice($("qz-choices"), item.o, item.a, right => {
+      if (right) { qScore++; addXP(10); }
+      $("qz-score").textContent = `Score ${qScore}`;
+      $("qz-fb").innerHTML = `<div class="feedback">${right ? "✅ Nice!" : "❌ Not quite."} ${item.why}</div>`;
+      $("qz-next").textContent = qi === QUIZ.length - 1 ? "See my result" : "Next question";
+      $("qz-next").style.display = "block";
+    });
+  }
+  $("qz-next").onclick = () => {
+    qi++;
+    if (qi < QUIZ.length) return quizShow();
+    $("qz-bar").style.width = "100%";
+    const msg = qScore >= 7 ? "Money wizard 🧙" : qScore >= 4 ? "Getting there 🌱" : "Good start. Try the Learn page 📚";
+    $("qz-count").textContent = "Finished";
+    $("qz-q").textContent = "";
+    $("qz-choices").innerHTML = "";
+    $("qz-fb").innerHTML = "";
+    $("qz-next").style.display = "none";
+    $("qz-q").innerHTML = `<div class="end"><div class="big">${qScore} / ${QUIZ.length}</div><p>${msg}</p>
+      <button onclick="quizStart()">Play again</button></div>`;
+  };
+  startFns.quiz = quizStart;
+
+  // =====================================================
+  // Game 2: Guess the growth (answer comes from the Flask API)
+  // =====================================================
+  let ggStreak = 0, ggScore = 0;
+  async function guessRound() {
+    $("gg-fb").innerHTML = "";
+    $("gg-next").style.display = "none";
+    $("gg-choices").innerHTML = "";
+    $("gg-streak").textContent = `Streak 🔥 ${ggStreak}`;
+    $("gg-score").textContent = `Score ${ggScore}`;
+
+    const sip = pick([1000, 2000, 5000, 10000]);
+    const years = pick([5, 10, 15, 20, 25]);
+    const rate = pick([8, 10, 12]);
+    $("gg-q").textContent = `You invest ₹${fmt(sip)} every month for ${years} years at ${rate}% a year. What will it be worth?`;
+
+    let res;
+    try { res = await post("/api/future-value", { lump_sum: 0, monthly_sip: sip, rate, years }); }
+    catch (e) { $("gg-q").textContent = "Could not reach the server. Try again."; $("gg-next").style.display = "block"; return; }
+    if (!res.ok) { $("gg-q").textContent = res.data.error; return; }
+
+    const d = res.data;
+    const round = n => Math.round(n / 1000) * 1000;
+    const answer = round(d.final_value);
+    const options = shuffle([answer, round(d.final_value * 0.7), round(d.final_value * 1.4)]);
+    askChoice($("gg-choices"), options.map(n => "₹" + fmt(n)), options.indexOf(answer), right => {
+      if (right) { ggStreak++; ggScore++; addXP(10 + Math.min(ggStreak, 5)); } else { ggStreak = 0; }
+      $("gg-streak").textContent = `Streak 🔥 ${ggStreak}`;
+      $("gg-score").textContent = `Score ${ggScore}`;
+      $("gg-fb").innerHTML = `<div class="feedback">${right ? "✅ Spot on!" : "❌ Close, but no."}
+        You put in <b>₹${fmt(d.invested)}</b>. It grew to <b>₹${fmt(d.final_value)}</b>,
+        so growth made <b>₹${fmt(d.gain)}</b>.</div>`;
+      $("gg-next").style.display = "block";
+    });
+  }
+  $("gg-next").onclick = guessRound;
+  startFns.guess = () => { ggStreak = 0; ggScore = 0; guessRound(); };
+
+  // =====================================================
+  // Game 3: Rule of 72
+  // =====================================================
+  const RATES = [3, 4, 6, 8, 9, 12];
+  let rrStreak = 0, rrScore = 0;
+  function r72Round() {
+    $("rr-fb").innerHTML = "";
+    $("rr-next").style.display = "none";
+    $("rr-streak").textContent = `Streak 🔥 ${rrStreak}`;
+    $("rr-score").textContent = `Score ${rrScore}`;
+
+    const rate = pick([6, 8, 9, 12, 18, 24]);
+    const years = 72 / rate;
+    $("rr-q").textContent = `Money grows ${rate}% a year. About how many years to double it?`;
+
+    const wrong = shuffle(RATES.filter(n => n !== years)).slice(0, 2);
+    const options = shuffle([years, ...wrong]);
+    askChoice($("rr-choices"), options.map(n => n + " years"), options.indexOf(years), right => {
+      if (right) { rrStreak++; rrScore++; addXP(10 + Math.min(rrStreak, 5)); } else { rrStreak = 0; }
+      $("rr-streak").textContent = `Streak 🔥 ${rrStreak}`;
+      $("rr-score").textContent = `Score ${rrScore}`;
+      $("rr-fb").innerHTML = `<div class="feedback">${right ? "✅ Yes!" : "❌ Not this time."} 72 ÷ ${rate} = <b>${years}</b> years.</div>`;
+      $("rr-next").style.display = "block";
+    });
+  }
+  $("rr-next").onclick = r72Round;
+  startFns.r72 = () => { rrStreak = 0; rrScore = 0; r72Round(); };
+
+  // Open the quiz first
+  document.querySelector('[data-g="quiz"]').click();
+</script>
+{% endblock %}

@@ -97,7 +97,7 @@ export default function Recorder({ onParsed, onManualAdd }) {
             {busy
               ? "Processing your expenses…"
               : recording
-              ? "Speak naturally in English or Hindi (e.g. '120 on lunch and 50 auto')"
+              ? "Speak naturally in English (e.g. '120 on lunch and 50 auto')"
               : 'Tap mic or type: "120 on lunch, 50 for bus and 499 for Netflix".'}
           </p>
         </div>

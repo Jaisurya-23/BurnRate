@@ -69,47 +69,7 @@ export default function App() {
   }
 
   if (!dash) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-ink p-6 text-center text-white">
-        <div className="max-w-xs animate-fade-in">
-          <img src="/img/logo.png" alt="BurnRate" className="mx-auto h-20 w-20 rounded-2xl shadow-xl shadow-leaf/20" />
-          {error ? (
-            <>
-              <p className="mt-4 text-sm text-coral">{error}</p>
-              <div className="mt-4 flex justify-center gap-2">
-                <button
-                  onClick={refresh}
-                  className="rounded-xl bg-leaf px-4 py-2 text-sm font-semibold active:scale-95 transition"
-                >
-                  Try again
-                </button>
-                <button
-                  onClick={async () => {
-                    await api.logout();
-                    setHasToken(false);
-                    setDash(null);
-                  }}
-                  className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold active:scale-95 transition"
-                >
-                  Log In
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="mt-5 flex justify-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-glow animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-2 w-2 rounded-full bg-glow animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-2 w-2 rounded-full bg-glow animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
-              <p className="mt-3 text-sm text-white/70">
-                {slow ? "Connecting to backend engine…" : "Loading BurnRate…"}
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-    );
+    return <LoadingScreen error={error} slow={slow} onRetry={refresh} onLogout={async () => { await api.logout(); setHasToken(false); setDash(null); }} />;
   }
 
   // First visit for this user: ask for category budgets before showing anything else.
@@ -186,10 +146,10 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Custom Expense Button */}
+            {/* Custom Expense Button – hidden on mobile (FAB handles it) */}
             <button
               onClick={() => setAddingCustom(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-forest px-3.5 py-2 text-xs sm:text-sm font-bold text-white shadow-sm transition active:scale-95 hover:bg-leaf"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-forest px-3.5 py-2 text-xs sm:text-sm font-bold text-white shadow-sm transition active:scale-95 hover:bg-leaf"
             >
               <span>+ Add Expense</span>
             </button>
@@ -539,6 +499,186 @@ function Stat({ icon, label, value }) {
       <div className="mt-2.5">
         <p className="text-[11px] sm:text-xs font-medium text-ink/55 truncate">{label}</p>
         <p className="font-display text-lg sm:text-xl font-bold text-ink mt-0.5">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+const FINANCE_TIPS = [
+  {
+    emoji: "🍕",
+    tag: "Budgeting 101",
+    title: "The 50/30/20 Rule",
+    fact: "50% Needs, 30% Wants, 20% Savings. If your 'Needs' column secretly includes daily artisan lattes and late-night food deliveries, your wallet is crying.",
+  },
+  {
+    emoji: "🛒",
+    tag: "Impulse Control",
+    title: "The 48-Hour Rule",
+    fact: "About to buy something online after midnight? Put it in the cart and wait 48 hours. 70% of the time, tomorrow's sane brain asks: 'Why did I need an avocado slicer?'",
+  },
+  {
+    emoji: "🧮",
+    tag: "Mental Math",
+    title: "The Magical 'Rule of 72'",
+    fact: "Divide 72 by your annual interest return to see when your money doubles. At 12% returns? 72 ÷ 12 = 6 years! In a 3% savings account? 24 years. Inflation says hello.",
+  },
+  {
+    emoji: "☕",
+    tag: "Compound Growth",
+    title: "The Coffee Paradox",
+    fact: "Skipping coffee won't make you a millionaire. But investing ₹3,000/month at 12% turns into ~₹30 Lakhs in 20 years. Enjoy the coffee, just make sure you invest too!",
+  },
+  {
+    emoji: "📉",
+    tag: "Money Physics",
+    title: "Cash in a cupboard loses weight",
+    fact: "With 6% inflation, ₹1,00,000 hidden in your closet only has the purchasing power of ₹55,000 in 10 years. Cash doesn't rust, but inflation eats it alive.",
+  },
+  {
+    emoji: "🛡️",
+    tag: "Peace of Mind",
+    title: "Emergency Funds > Therapy",
+    fact: "Stashing 3 to 6 months of living expenses in a liquid fund turns life's sudden emergencies from full-blown panic attacks into minor inconveniences.",
+  },
+  {
+    emoji: "💳",
+    tag: "Credit Smarts",
+    title: "Reward points aren't free money",
+    fact: "Spending ₹5,000 on things you didn't need just to earn ₹150 in reward points is how credit card companies buy skyscrapers. Pay the full bill every month!",
+  },
+  {
+    emoji: "⏳",
+    tag: "Mindset Shift",
+    title: "Price in hours, not rupees",
+    fact: "That ₹6,000 jacket isn't ₹6,000. If you take home ₹500/hour, it costs 12 hours of your life. Ask yourself: 'Am I willing to work all of Tuesday just for this?'",
+  },
+  {
+    emoji: "📈",
+    tag: "Wealth Killer",
+    title: "Beware of Lifestyle Creep",
+    fact: "Got a 20% raise? Try not to increase your spending by 30%. The fastest hack to building wealth is pretending you're still on your old salary for one more year.",
+  },
+  {
+    emoji: "🌱",
+    tag: "Simple Wealth",
+    title: "Boring investing wins the marathon",
+    fact: "Over 85% of professional fund managers fail to beat simple broad index funds over 15 years. You don't need stock-picking superpowers—just steady consistency.",
+  },
+];
+
+function LoadingScreen({ error, slow, onRetry, onLogout }) {
+  const [tipIdx, setTipIdx] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (error) return;
+    const timer = setInterval(() => {
+      setElapsed((s) => s + 1);
+      setTipIdx((i) => (i + 1) % FINANCE_TIPS.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [error, tipIdx]);
+
+  const tip = FINANCE_TIPS[tipIdx];
+
+  const handleNextTip = () => {
+    setTipIdx((i) => (i + 1) % FINANCE_TIPS.length);
+  };
+
+  return (
+    <div className="grid min-h-screen place-items-center bg-ink p-4 sm:p-6 text-center text-white">
+      <div className="max-w-md w-full animate-fade-in space-y-5">
+        {/* Logo and Brand */}
+        <div className="flex flex-col items-center">
+          <div className="relative mb-3 h-16 w-16 sm:h-20 sm:w-20">
+            <img
+              src="/img/logo.png"
+              alt="BurnRate"
+              className="h-full w-full rounded-2xl sm:rounded-3xl shadow-xl shadow-leaf/25"
+            />
+            {!error && (
+              <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-forest text-xs shadow-md">
+                {tip.emoji}
+              </span>
+            )}
+          </div>
+          <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight">BurnRate</h1>
+          <p className="text-xs text-white/50 mt-0.5">Connecting to your secure financial vault…</p>
+        </div>
+
+        {error ? (
+          <div className="rounded-2xl bg-white/5 border border-white/10 p-5 text-center">
+            <p className="text-sm text-coral leading-relaxed">{error}</p>
+            <div className="mt-5 flex justify-center gap-3">
+              <button
+                onClick={onRetry}
+                className="rounded-xl bg-leaf px-5 py-2.5 text-sm font-bold active:scale-95 transition hover:bg-forest"
+              >
+                Try again
+              </button>
+              <button
+                onClick={onLogout}
+                className="rounded-xl bg-white/10 px-5 py-2.5 text-sm font-semibold active:scale-95 transition hover:bg-white/20"
+              >
+                Log In
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Informative & Humorous Personal Finance Card */}
+            <div className="relative overflow-hidden rounded-2xl bg-white/[0.07] border border-white/10 p-5 text-left shadow-2xl backdrop-blur-md">
+              <div className="flex items-center justify-between text-xs mb-2.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-glow/15 px-2.5 py-0.5 text-[11px] font-bold text-glow">
+                  <span>{tip.emoji}</span>
+                  <span>{tip.tag}</span>
+                </span>
+                <span className="text-[11px] font-medium text-white/40">
+                  Tip {tipIdx + 1} of {FINANCE_TIPS.length}
+                </span>
+              </div>
+
+              <h2 className="font-display text-base sm:text-lg font-bold text-white mb-1.5">
+                {tip.title}
+              </h2>
+              <p className="text-xs sm:text-sm text-white/75 leading-relaxed">
+                {tip.fact}
+              </p>
+
+              {/* Next tip interactive button */}
+              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+                <span className="text-[11px] text-white/40">Auto-cycles every 5s</span>
+                <button
+                  type="button"
+                  onClick={handleNextTip}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-glow hover:text-white transition active:scale-95"
+                >
+                  <span>Next tip</span>
+                  <span>→</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Connection Status & Progress Bar */}
+            <div className="space-y-2 pt-1">
+              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-glow transition-all duration-[4000ms] ease-linear"
+                  style={{ width: `${Math.min(15 + (elapsed / 45) * 80, 92)}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-white/45">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-glow animate-ping" />
+                  {slow ? "Warming up engine (hang tight!)" : "Syncing server…"}
+                </span>
+                <span>{slow ? "~1-2 min" : "Almost ready"}</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

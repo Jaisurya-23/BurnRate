@@ -13,7 +13,7 @@
 
 ## 🌟 Key Features
 
-* **🎙️ Voice-First AI Logging**: Tap and speak naturally in English or Hinglish (e.g., *"120 on lunch, 50 auto and 499 for Netflix"*). Transcribed with **Groq Whisper** and parsed instantly into structured JSON.
+* **🎙️ Voice-First AI Logging**: Tap and speak naturally in English (e.g., *"120 on lunch, 50 auto and 499 for Netflix"*). Transcribed with **Groq Whisper** and parsed instantly into structured JSON.
 * **⚡ Ultra-Fast Local Parser**: Zero-latency regex and keyword extraction (~0ms) eliminates slow API fallbacks and network retries.
 * **📊 Per-Category Budgets**: Set spending caps on individual categories (e.g., Food: ₹3,000, Friends: ₹1,000, Transport: ₹1,500).
 * **🚨 Real-Time Budget Alerts**: Automatic warnings when spending reaches **80%** (⚠️ near limit) and alerts when exceeded (🚨 over budget).

@@ -47,7 +47,13 @@ async def transcribe(audio: bytes, content_type: str) -> str:
             "https://api.groq.com/openai/v1/audio/transcriptions",
             headers={"Authorization": f"Bearer {key}"},
             files={"file": (filename, audio, content_type or "audio/webm")},
-            data={"model": "whisper-large-v3-turbo", "response_format": "json", "temperature": "0"},
+            data={
+                "model": "whisper-large-v3-turbo",
+                "response_format": "json",
+                "temperature": "0",
+                "language": "en",
+                "prompt": "Transcribe personal expenses in English only: 120 on lunch, 50 auto, 350 for groceries, 499 netflix, 1000 rent.",
+            },
         )
     if r.status_code != 200:
         raise RuntimeError(f"Groq error {r.status_code}: {r.text[:200]}")
@@ -107,20 +113,53 @@ KEYWORDS = {
 }
 
 
+WORD_NUMS = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
+    "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
+    "eighty": 80, "ninety": 90, "hundred": 100, "thousand": 1000,
+}
+
+
+def _words_to_number(text: str) -> float:
+    """Helper to detect simple spoken English number words like 'fifty' or 'two hundred'."""
+    tokens = re.findall(r"[a-z]+", text.lower())
+    total = 0
+    current = 0
+    found = False
+    for t in tokens:
+        if t in WORD_NUMS:
+            found = True
+            v = WORD_NUMS[t]
+            if v == 100:
+                current = (current or 1) * 100
+            elif v == 1000:
+                total += (current or 1) * 1000
+                current = 0
+            else:
+                current += v
+    if found and (total + current) > 0:
+        return float(total + current)
+    return 0.0
+
+
 def _parse_local(text: str) -> List[ExpenseItem]:
     """Fast local parser: splits by conjunctions, extracts amounts + categories."""
     items = []
     # Split on common separators
     for part in re.split(r",|\band\b|\bthen\b|\bafter that\b|\balso\b|\bplus\b|\.|;", text, flags=re.I):
         m = re.search(r"(\d[\d,]*\.?\d*)", part)
-        if not m:
-            continue
-        amount = float(m.group(1).replace(",", ""))
+        if m:
+            amount = float(m.group(1).replace(",", ""))
+        else:
+            amount = _words_to_number(part)
         if amount <= 0:
             continue
         # Clean up the note
         words = re.sub(
-            r"(rs\.?|rupees|₹|\d[\d,]*\.?\d*|\bspent\b|\bpaid\b|\bon\b|\bfor\b|\bi\b|\bgot\b|\bgave\b|\baround\b|\babout\b|\blike\b|\bsome\b|\ba\b)",
+            r"(rs\.?|rupees|inr|₹|\d[\d,]*\.?\d*|\bspent\b|\bpaid\b|\bon\b|\bfor\b|\bi\b|\bgot\b|\bgave\b|\baround\b|\babout\b|\blike\b|\bsome\b|\ba\b|\ban\b|\bthe\b|\bzero\b|\bone\b|\btwo\b|\bthree\b|\bfour\b|\bfive\b|\bsix\b|\bseven\b|\beight\b|\bnine\b|\bten\b|\beleven\b|\btwelve\b|\bthirteen\b|\bfourteen\b|\bfifteen\b|\bsixteen\b|\bseventeen\b|\beighteen\b|\bnineteen\b|\btwenty\b|\bthirty\b|\bforty\b|\bfifty\b|\bsixty\b|\bseventy\b|\beighty\b|\bninety\b|\bhundred\b|\bthousand\b)",
             " ", part, flags=re.I,
         )
         note = " ".join(words.split())[:60] or "expense"

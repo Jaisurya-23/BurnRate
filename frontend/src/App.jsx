@@ -7,6 +7,7 @@ import BudgetForm from "./components/BudgetForm";
 import Categories from "./components/Categories";
 import ExpenseList from "./components/ExpenseList";
 import AuthView from "./components/AuthView";
+import AnalyticsView from "./components/AnalyticsView";
 
 const todayIso = () => {
   const now = new Date();
@@ -28,6 +29,25 @@ export default function App() {
   const [showBudget, setShowBudget] = useState(false);
   const [mobileTab, setMobileTab] = useState("expenses"); // 'expenses' | 'insights'
   const [alerts, setAlerts] = useState([]); // category budget alerts
+  const [currentPage, setCurrentPage] = useState(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#analytics") {
+      return "analytics";
+    }
+    return "tracker";
+  });
+  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === "#analytics") {
+        setCurrentPage("analytics");
+      } else {
+        setCurrentPage("tracker");
+      }
+    };
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
 
   async function refresh() {
     if (!api.getToken()) {
@@ -38,6 +58,7 @@ export default function App() {
       const [d, e] = await Promise.all([api.dashboard(), api.expenses()]);
       setDash(d);
       setExpenses(e);
+      setAnalyticsRefreshKey((k) => k + 1);
       setError("");
     } catch (err) {
       if (err.status === 401) {
@@ -131,25 +152,60 @@ export default function App() {
   return (
     <div className="min-h-screen pb-safe">
       {/* Sticky Header */}
-      <header className="sticky top-0 z-30 border-b border-black/5 bg-paper/90 backdrop-blur-md px-4 sm:px-6 py-3 pt-safe">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src="/img/logo.png" alt="BurnRate" className="h-9 w-9 rounded-xl shadow-sm" />
+      <header className="sticky top-0 z-30 border-b border-black/5 bg-paper/90 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 pt-safe">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
+          {/* Brand Logo */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <img src="/img/logo.png" alt="BurnRate" className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl shadow-sm" />
             <div>
-              <span className="font-display text-lg font-bold tracking-tight text-ink">BurnRate</span>
+              <span className="font-display text-base sm:text-lg font-bold tracking-tight text-ink">BurnRate</span>
               {dash.month && (
-                <span className="ml-2 hidden sm:inline-block rounded-full bg-mint px-2.5 py-0.5 text-xs font-semibold text-leaf">
+                <span className="ml-1.5 hidden md:inline-block rounded-full bg-mint px-2 py-0.2 text-[11px] font-semibold text-leaf">
                   {dash.month}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Dedicated Page Switcher (Tracker vs Analytics) */}
+          <nav aria-label="Page navigation" className="flex items-center rounded-2xl bg-black/[0.05] p-1 ring-1 ring-black/5">
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentPage("tracker");
+                if (window.location.hash !== "#tracker") window.location.hash = "tracker";
+              }}
+              className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs sm:text-sm font-bold transition active:scale-95 ${
+                currentPage === "tracker"
+                  ? "bg-white text-ink shadow-sm ring-1 ring-black/5"
+                  : "text-ink/60 hover:text-ink hover:bg-black/[0.02]"
+              }`}
+            >
+              <span>⚡</span>
+              <span>Tracker</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentPage("analytics");
+                if (window.location.hash !== "#analytics") window.location.hash = "analytics";
+              }}
+              className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs sm:text-sm font-bold transition active:scale-95 ${
+                currentPage === "analytics"
+                  ? "bg-white text-ink shadow-sm ring-1 ring-black/5"
+                  : "text-ink/60 hover:text-ink hover:bg-black/[0.02]"
+              }`}
+            >
+              <span>📊</span>
+              <span>Analytics</span>
+            </button>
+          </nav>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Custom Expense Button – hidden on mobile (FAB handles it) */}
             <button
               onClick={() => setAddingCustom(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-forest px-3.5 py-2 text-xs sm:text-sm font-bold text-white shadow-sm transition active:scale-95 hover:bg-leaf"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs sm:text-sm font-bold text-white shadow-sm transition active:scale-95 hover:bg-leaf"
             >
               <span>+ Add Expense</span>
             </button>
@@ -189,10 +245,21 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 sm:px-6 py-4 space-y-4 lg:grid lg:grid-cols-5 lg:gap-6 lg:space-y-0 pb-20">
-        {/* Left Column (Main actions & cards) */}
-        <div className="space-y-4 sm:space-y-5 lg:col-span-3">
-          {/* Safe-to-Spend Hero Card */}
+      {currentPage === "analytics" ? (
+        <AnalyticsView
+          key={analyticsRefreshKey}
+          onBackToTracker={() => {
+            setCurrentPage("tracker");
+            window.location.hash = "tracker";
+          }}
+          onOpenBudgetModal={() => setShowBudget(true)}
+          onAddExpense={() => setAddingCustom(true)}
+        />
+      ) : (
+        <main className="mx-auto max-w-5xl px-4 sm:px-6 py-4 space-y-4 lg:grid lg:grid-cols-5 lg:gap-6 lg:space-y-0 pb-20">
+          {/* Left Column (Main actions & cards) */}
+          <div className="space-y-4 sm:space-y-5 lg:col-span-3">
+            {/* Safe-to-Spend Hero Card */}
           <section className="relative overflow-hidden rounded-3xl bg-ink p-5 sm:p-7 text-white shadow-xl shadow-ink/10">
             <img
               src="/img/trend.png"
@@ -323,6 +390,7 @@ export default function App() {
           <Categories data={dash.categories} categoryBudgets={dash.category_budgets || {}} />
         </aside>
       </main>
+      )}
 
       {/* Floating Action Button (FAB) on Mobile */}
       <button

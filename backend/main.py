@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 import calendar
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo
 
@@ -565,3 +565,194 @@ def dashboard(
         "category_budgets": cat_budgets,
         "alerts": alerts,
     }
+
+
+# ---------- Analytics & Insights (Weekly, Monthly, Yearly) ----------
+CATEGORY_COLOR_MAP = {
+    "Food": "#FF6B6B",
+    "Groceries": "#20BF6B",
+    "Transport": "#2D9CDB",
+    "Rent": "#8854D0",
+    "Fun": "#F7B731",
+    "Bills": "#FA8231",
+    "Shopping": "#EB3B5A",
+    "Health": "#05C46B",
+    "Friends": "#FD79A8",
+    "Other": "#778CA3",
+}
+
+DYNAMIC_COLORS = [
+    "#4B7BEC", "#3867D6", "#0FB9B1", "#2BCBBA",
+    "#FED330", "#FC5C65", "#45AAF2", "#26DE81",
+    "#A55EEA", "#D1D8E0", "#FF9FF3", "#54A0FF"
+]
+
+
+def get_color_for_category(cat: str, idx: int = 0) -> str:
+    if cat in CATEGORY_COLOR_MAP:
+        return CATEGORY_COLOR_MAP[cat]
+    return DYNAMIC_COLORS[idx % len(DYNAMIC_COLORS)]
+
+
+def timeframe_range(timeframe: str, offset: int = 0):
+    t = today()
+    tf = (timeframe or "monthly").lower().strip()
+
+    if tf == "weekly":
+        monday = t - timedelta(days=t.weekday()) + timedelta(weeks=offset)
+        sunday = monday + timedelta(days=6)
+        if offset == 0:
+            label = f"This Week ({monday.strftime('%d %b')} – {sunday.strftime('%d %b')})"
+        elif offset == -1:
+            label = f"Last Week ({monday.strftime('%d %b')} – {sunday.strftime('%d %b')})"
+        else:
+            label = f"{monday.strftime('%d %b')} – {sunday.strftime('%d %b %Y')}"
+        # Weekly multiplier (7 days out of ~30.4 days avg month)
+        budget_multiplier = 7.0 / 30.4375
+        return monday, sunday, label, budget_multiplier
+
+    elif tf == "yearly":
+        year = t.year + offset
+        start = date(year, 1, 1)
+        end = date(year, 12, 31)
+        if offset == 0:
+            label = f"This Year ({year})"
+        elif offset == -1:
+            label = f"Last Year ({year})"
+        else:
+            label = f"Year {year}"
+        budget_multiplier = 12.0
+        return start, end, label, budget_multiplier
+
+    else:  # monthly
+        total_months = t.year * 12 + (t.month - 1) + offset
+        year = total_months // 12
+        month = (total_months % 12) + 1
+        last_day = calendar.monthrange(year, month)[1]
+        start = date(year, month, 1)
+        end = date(year, month, last_day)
+        if offset == 0:
+            label = f"This Month ({start.strftime('%B %Y')})"
+        elif offset == -1:
+            label = f"Last Month ({start.strftime('%B %Y')})"
+        else:
+            label = start.strftime("%B %Y")
+        budget_multiplier = 1.0
+        return start, end, label, budget_multiplier
+
+
+@app.get("/analytics")
+def get_analytics(
+    timeframe: str = "monthly",
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    start, end, label, budget_mult = timeframe_range(timeframe, offset)
+
+    # 1. Fetch expenses for the period
+    expenses = (
+        db.query(Expense)
+        .filter(
+            Expense.user_id == current_user.id,
+            Expense.spent_on >= start,
+            Expense.spent_on <= end,
+        )
+        .order_by(Expense.spent_on.desc())
+        .all()
+    )
+
+    total_spent = sum(e.amount for e in expenses)
+
+    # 2. Category budgets (stored monthly)
+    cat_budget_rows = (
+        db.query(CategoryBudget)
+        .filter(CategoryBudget.user_id == current_user.id)
+        .all()
+    )
+    monthly_cat_budgets = {cb.category: cb.budget_limit for cb in cat_budget_rows}
+
+    # Fallback to general monthly budget if no category budgets
+    user_budget = get_user_budget(db, current_user.id)
+    base_monthly_budget = sum(monthly_cat_budgets.values()) or user_budget.monthly_budget
+
+    timeframe_total_budget = round(base_monthly_budget * budget_mult, 2)
+
+    # 3. Aggregate spent by category
+    by_category: Dict[str, float] = {}
+    for e in expenses:
+        by_category[e.category] = by_category.get(e.category, 0.0) + e.amount
+
+    all_categories = sorted(list(set(list(by_category.keys()) + list(monthly_cat_budgets.keys()))))
+
+    categories_data = []
+    for idx, cat in enumerate(all_categories):
+        spent_amt = round(by_category.get(cat, 0.0), 2)
+        base_limit = monthly_cat_budgets.get(cat, 0.0)
+        timeframe_limit = round(base_limit * budget_mult, 2) if base_limit > 0 else 0.0
+
+        percent_of_total = round((spent_amt / total_spent * 100), 1) if total_spent > 0 else 0.0
+
+        if timeframe_limit > 0:
+            budget_pct = round((spent_amt / timeframe_limit * 100), 1)
+            if spent_amt >= timeframe_limit:
+                status_code = "over"
+            elif spent_amt >= timeframe_limit * 0.8:
+                status_code = "warning"
+            else:
+                status_code = "within"
+        else:
+            budget_pct = 0.0
+            status_code = "no_budget"
+
+        categories_data.append({
+            "category": cat,
+            "spent": spent_amt,
+            "budget": timeframe_limit,
+            "percent_of_total": percent_of_total,
+            "budget_percent": budget_pct,
+            "remaining": round(timeframe_limit - spent_amt, 2) if timeframe_limit > 0 else 0.0,
+            "over_by": round(spent_amt - timeframe_limit, 2) if spent_amt > timeframe_limit else 0.0,
+            "status": status_code,
+            "color": get_color_for_category(cat, idx),
+        })
+
+    # Sort categories: highest spent first, then with budget
+    categories_data.sort(key=lambda x: (x["spent"], x["budget"]), reverse=True)
+
+    # Top spending category
+    top_cat = None
+    spent_categories = [c for c in categories_data if c["spent"] > 0]
+    if spent_categories:
+        top_cat = spent_categories[0]
+
+    # Overall budget status
+    if timeframe_total_budget > 0:
+        overall_budget_pct = round((total_spent / timeframe_total_budget * 100), 1)
+        if total_spent >= timeframe_total_budget:
+            overall_status = "over"
+        elif total_spent >= timeframe_total_budget * 0.8:
+            overall_status = "warning"
+        else:
+            overall_status = "within"
+    else:
+        overall_budget_pct = 0.0
+        overall_status = "no_budget"
+
+    return {
+        "timeframe": timeframe.lower(),
+        "offset": offset,
+        "label": label,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "total_spent": round(total_spent, 2),
+        "total_budget": timeframe_total_budget,
+        "remaining": round(timeframe_total_budget - total_spent, 2),
+        "budget_percent": overall_budget_pct,
+        "status": overall_status,
+        "top_category": top_cat,
+        "categories": categories_data,
+        "expense_count": len(expenses),
+        "has_next": offset < 0,
+    }
+

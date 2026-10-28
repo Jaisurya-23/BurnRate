@@ -104,6 +104,9 @@ export const api = {
     request("/expenses", json("POST", { items, raw_transcript })),
   updateExpense: (id, data) => request(`/expenses/${id}`, json("PATCH", data)),
   deleteExpense: (id) => request(`/expenses/${id}`, { method: "DELETE" }),
+  // Analytics & Insights
+  analytics: (timeframe = "monthly", offset = 0) =>
+    request(`/analytics?timeframe=${encodeURIComponent(timeframe)}&offset=${offset}`),
   // Category budgets
   getCategoryBudgets: () => request("/category-budgets"),
   setCategoryBudgets: (budgets) => request("/category-budgets", json("PUT", { budgets })),
